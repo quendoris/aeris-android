@@ -94,11 +94,23 @@ class MainActivity : ComponentActivity() {
         documentState.value = DocumentOpenState.Opening(displayName = null)
         documentExecutor.execute {
             val result = documentAccess.probeReadOnly(uri, persistentAccess)
-            if (generation != documentGeneration.get()) return@execute
+            val stillCurrent = generation == documentGeneration.get()
 
-            if (rememberOnSuccess && result is DocumentOpenState.DescriptorReady) {
-                documentSession.remember(uri)
+            if (!stillCurrent) {
+                if (rememberOnSuccess && persistentAccess) releasePersistedRead(uri)
+                return@execute
             }
+
+            if (rememberOnSuccess) {
+                if (result is DocumentOpenState.DescriptorReady) {
+                    val previous = documentSession.restore()
+                    documentSession.remember(uri)
+                    if (previous != null && previous != uri) releasePersistedRead(previous)
+                } else if (persistentAccess) {
+                    releasePersistedRead(uri)
+                }
+            }
+
             runOnUiThread {
                 if (
                     generation == documentGeneration.get() &&
@@ -108,6 +120,15 @@ class MainActivity : ComponentActivity() {
                     documentState.value = result
                 }
             }
+        }
+    }
+
+    private fun releasePersistedRead(uri: Uri) {
+        runCatching {
+            contentResolver.releasePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
         }
     }
 }
