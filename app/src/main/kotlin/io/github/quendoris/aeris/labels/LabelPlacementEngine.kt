@@ -102,7 +102,11 @@ class LabelPlacementEngine(
 
             val candidate = item.candidate
             val bounds = item.bounds
-            val collidingIndices = candidateCollisionIndices(bounds, collisionGrid)
+            val gridBounds = bounds.clippedToViewport(
+                request.viewportWidth,
+                request.viewportHeight,
+            ) ?: continue
+            val collidingIndices = candidateCollisionIndices(gridBounds, collisionGrid)
             val collides = if (candidate.selected) {
                 // Selected objects must remain visible. They still occupy the
                 // grid so lower-priority labels cannot render over them.
@@ -121,7 +125,7 @@ class LabelPlacementEngine(
             )
             val acceptedIndex = accepted.size
             accepted += placement
-            occupy(bounds, acceptedIndex, collisionGrid)
+            occupy(gridBounds, acceptedIndex, collisionGrid)
         }
 
         return accepted
@@ -204,6 +208,16 @@ class LabelPlacementEngine(
 
         fun intersectsViewport(width: Int, height: Int): Boolean =
             right > 0f && bottom > 0f && left < width.toFloat() && top < height.toFloat()
+
+        fun clippedToViewport(width: Int, height: Int): Bounds? {
+            val clipped = Bounds(
+                left = max(0f, left),
+                top = max(0f, top),
+                right = min(width.toFloat(), right),
+                bottom = min(height.toFloat(), bottom),
+            )
+            return clipped.takeIf { it.right > it.left && it.bottom > it.top }
+        }
     }
 
     private fun PlacedLabel.toBounds(): Bounds = Bounds(left, top, right, bottom)
