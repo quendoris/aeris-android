@@ -50,6 +50,24 @@ Personal pins, labels, notes, tracks, areas and related data are intended to be 
 
 Normal use should not require an AERIS-specific password. Authorized-device key material will be protected using Android platform key facilities, while cross-device vault semantics and ciphertext remain shared with desktop/core.
 
+## Cross-device pairing
+
+AERIS Private Vault pairing is intended to be camera-optional and offline-capable.
+
+The UI must explicitly tell users that a pairing QR can be scanned directly or exported and transferred to another device such as a PC. Desktop and Android consume the same platform-neutral AERIS Pairing Capsule representation.
+
+The planned flow uses a request/response handshake:
+
+1. A new device creates a one-time pairing request.
+2. The request can be shown as QR or exported as an image/file for offline transfer.
+3. An already authorized desktop/phone imports or scans that exact request and approves it.
+4. The authorized device returns an authenticated response, again as QR or exportable image/file.
+5. Both devices display the same short verification code before final approval.
+
+The QR/request is not the vault key and must contain no private map plaintext. Production capsule encoding, replay/expiry rules and authenticated key transfer belong to the shared core security contract; Android only provides transport and confirmation UX.
+
+The current branch contains the pairing UI state machine and export-aware Compose sheet, but no production capsule codec or cryptographic transfer implementation yet.
+
 ## Format 1.0 gate
 
 AERIS Format 1.0 must not be frozen merely because the desktop implementation is stable. At minimum, desktop-created conformance fixtures must be read and verified independently on Android with identical semantic results. When Android writing exists, the inverse direction must also pass.
@@ -60,6 +78,6 @@ The intended distribution path is an open-source Android application suitable fo
 
 ## Status
 
-Map-first Android shell and dedicated render-surface boundary are under active development. Native `.aeris` reader integration has not started yet.
+Map-first Android shell, render-surface boundary, label placement baseline, and pairing UX state model are under active development. Native `.aeris` reader integration has not started yet.
 
 License: AGPL-3.0-only.
