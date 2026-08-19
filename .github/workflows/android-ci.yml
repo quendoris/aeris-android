@@ -32,17 +32,15 @@ jobs:
           gradle-version: '9.5.0'
           cache-provider: basic
 
-      - name: Install Android API 37 + native toolchain
+      - name: Verify Android API 37 + native toolchain
         shell: bash
         run: |
           set -euo pipefail
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          test -x "$SDKMANAGER"
-          "$SDKMANAGER" \
-            "platforms;android-37" \
-            "build-tools;36.0.0" \
-            "ndk;29.0.14206865" \
-            "cmake;3.22.1"
+          test -d "$ANDROID_HOME/platforms/android-37.0" || test -d "$ANDROID_HOME/platforms/android-37"
+          test -d "$ANDROID_HOME/build-tools/36.0.0"
+          test -d "$ANDROID_HOME/ndk/29.0.14206865"
+          cmake --version | head -n 1
+          cmake --version | grep -F "3.31.5"
 
       - name: Test Kotlin contracts
         run: gradle :app:testDebugUnitTest --stacktrace
