@@ -5,10 +5,8 @@ package io.github.quendoris.aeris.document
 
 import android.content.ContentResolver
 import android.net.Uri
-import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import java.io.FileNotFoundException
-import java.io.IOException
 
 class AerisDocumentAccess(
     private val contentResolver: ContentResolver,
@@ -62,59 +60,45 @@ class AerisDocumentAccess(
                 )
 
             providerDescriptor.use { providerFd ->
-                val duplicate = try {
-                    providerFd.dup()
-                } catch (error: IOException) {
+                val probe = try {
+                    // Borrow only. Native dup()s immediately and owns/closes its
+                    // copy; ContentResolver/PFD keeps ownership of this fd.
+                    NativeDocumentBridge.probeBorrowedFd(providerFd.fd)
+                } catch (error: Throwable) {
                     return DocumentOpenState.Failed(
                         uri = uri,
                         displayName = metadata.displayName,
-                        diagnostic = "Could not duplicate the document descriptor: ${error.message ?: "I/O error"}",
+                        diagnostic = "Native document bridge unavailable: ${error.message ?: error::class.java.simpleName}",
                     )
                 }
 
-                duplicate.use { nativeParcelFd ->
-                    val rawFd = nativeParcelFd.detachFd()
-                    val probe = try {
-                        NativeDocumentBridge.probeOwnedFd(rawFd)
-                    } catch (error: Throwable) {
-                        // System.loadLibrary/JNI resolution can fail before native
-                        // code receives ownership. Re-adopt and close in that case.
-                        runCatching { ParcelFileDescriptor.adoptFd(rawFd).close() }
-                        return DocumentOpenState.Failed(
-                            uri = uri,
-                            displayName = metadata.displayName,
-                            diagnostic = "Native document bridge unavailable: ${error.message ?: error::class.java.simpleName}",
-                        )
-                    }
+                return when (probe.status) {
+                    NativeDescriptorProbe.Status.Ready -> DocumentOpenState.DescriptorReady(
+                        uri = uri,
+                        displayName = metadata.displayName,
+                        declaredSizeBytes = metadata.declaredSizeBytes,
+                        nativeSizeBytes = probe.sizeBytes,
+                        persistentAccess = persistentAccess,
+                    )
 
-                    return when (probe.status) {
-                        NativeDescriptorProbe.Status.Ready -> DocumentOpenState.DescriptorReady(
-                            uri = uri,
-                            displayName = metadata.displayName,
-                            declaredSizeBytes = metadata.declaredSizeBytes,
-                            nativeSizeBytes = probe.sizeBytes,
-                            persistentAccess = persistentAccess,
-                        )
+                    NativeDescriptorProbe.Status.RandomAccessUnsupported -> DocumentOpenState.Unsupported(
+                        uri = uri,
+                        displayName = metadata.displayName,
+                        diagnostic = "This document provider exposes the file as a stream, not random-access storage. AERIS will not copy a large project into cache silently.",
+                    )
 
-                        NativeDescriptorProbe.Status.RandomAccessUnsupported -> DocumentOpenState.Unsupported(
-                            uri = uri,
-                            displayName = metadata.displayName,
-                            diagnostic = "This document provider exposes the file as a stream, not random-access storage. AERIS will not copy a large project into cache silently.",
-                        )
-
-                        NativeDescriptorProbe.Status.InvalidDescriptor,
-                        NativeDescriptorProbe.Status.StatFailed,
-                        NativeDescriptorProbe.Status.NativeFailure,
-                        -> DocumentOpenState.Failed(
-                            uri = uri,
-                            displayName = metadata.displayName,
-                            diagnostic = buildString {
-                                append("Native descriptor probe failed: ")
-                                append(probe.status.name)
-                                probe.errno?.let { append(" (errno ").append(it).append(')') }
-                            },
-                        )
-                    }
+                    NativeDescriptorProbe.Status.DuplicateFailed,
+                    NativeDescriptorProbe.Status.StatFailed,
+                    NativeDescriptorProbe.Status.NativeFailure,
+                    -> DocumentOpenState.Failed(
+                        uri = uri,
+                        displayName = metadata.displayName,
+                        diagnostic = buildString {
+                            append("Native descriptor probe failed: ")
+                            append(probe.status.name)
+                            probe.errno?.let { append(" (errno ").append(it).append(')') }
+                        },
+                    )
                 }
             }
         } catch (error: SecurityException) {
