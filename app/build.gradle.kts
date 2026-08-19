@@ -9,6 +9,7 @@ plugins {
 android {
     namespace = "io.github.quendoris.aeris"
     compileSdk = 37
+    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         applicationId = "io.github.quendoris.aeris"
@@ -30,6 +31,13 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 }
