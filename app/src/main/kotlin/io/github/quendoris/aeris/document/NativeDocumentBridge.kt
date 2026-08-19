@@ -10,7 +10,7 @@ data class NativeDescriptorProbe(
 ) {
     enum class Status {
         Ready,
-        InvalidDescriptor,
+        DuplicateFailed,
         StatFailed,
         RandomAccessUnsupported,
         NativeFailure,
@@ -23,18 +23,18 @@ data class NativeDescriptorProbe(
 /**
  * JNI transport boundary only.
  *
- * The native function takes ownership of [fd] and closes it on every return
- * path. It does not parse SQLite or `.aeris`; format verification remains a
- * responsibility of the shared AERIS core once the core gains an FD/VFS open
- * API.
+ * [probeBorrowedFd] never takes ownership of the Android/Java descriptor. The
+ * native function duplicates it immediately and owns/closes only that duplicate.
+ * It does not parse SQLite or `.aeris`; format verification remains a shared
+ * AERIS-core responsibility once the core gains an FD/VFS open API.
  */
 object NativeDocumentBridge {
     init {
         System.loadLibrary("aeris_android_bridge")
     }
 
-    fun probeOwnedFd(fd: Int): NativeDescriptorProbe {
-        val result = nativeProbeOwnedFd(fd)
+    fun probeBorrowedFd(fd: Int): NativeDescriptorProbe {
+        val result = nativeProbeBorrowedFd(fd)
         if (result.size < 3) {
             return NativeDescriptorProbe(
                 status = NativeDescriptorProbe.Status.NativeFailure,
@@ -45,7 +45,7 @@ object NativeDocumentBridge {
 
         val status = when (result[0].toInt()) {
             0 -> NativeDescriptorProbe.Status.Ready
-            1 -> NativeDescriptorProbe.Status.InvalidDescriptor
+            1 -> NativeDescriptorProbe.Status.DuplicateFailed
             2 -> NativeDescriptorProbe.Status.StatFailed
             3 -> NativeDescriptorProbe.Status.RandomAccessUnsupported
             else -> NativeDescriptorProbe.Status.NativeFailure
@@ -57,5 +57,5 @@ object NativeDocumentBridge {
         )
     }
 
-    private external fun nativeProbeOwnedFd(fd: Int): LongArray
+    private external fun nativeProbeBorrowedFd(fd: Int): LongArray
 }
