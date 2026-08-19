@@ -5,12 +5,12 @@ package io.github.quendoris.aeris.pairing
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -205,7 +205,7 @@ private fun AwaitingPairingResponseContent(
 }
 
 @Composable
-private fun ResponseReceivedContent(
+private fun ColumnScope.ResponseReceivedContent(
     state: PairingUiState,
     onBeginVerification: () -> Unit,
 ) {
@@ -227,7 +227,7 @@ private fun ResponseReceivedContent(
 }
 
 @Composable
-private fun VerificationContent(
+private fun ColumnScope.VerificationContent(
     state: PairingUiState,
     onConfirmVerification: () -> Unit,
 ) {
