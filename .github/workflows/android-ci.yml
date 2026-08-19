@@ -14,7 +14,7 @@ permissions:
 jobs:
   shell-build:
     name: Android 37 / map shell
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -36,7 +36,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager \
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" \
             "platforms;android-37" \
             "build-tools;36.0.0" \
             "ndk;29.0.14206865" \
