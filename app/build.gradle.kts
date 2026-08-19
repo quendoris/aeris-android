@@ -37,7 +37,9 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.31.5"
+            version = providers.environmentVariable("AERIS_CMAKE_VERSION")
+                .orElse("3.31.6")
+                .get()
         }
     }
 }
