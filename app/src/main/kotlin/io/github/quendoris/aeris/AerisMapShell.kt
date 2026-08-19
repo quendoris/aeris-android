@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -122,7 +124,6 @@ fun AerisMapShell() {
 
             RoundMapAction(
                 label = "+",
-                description = "Private annotation",
                 onClick = { privateToolsExpanded = !privateToolsExpanded },
             )
 
@@ -228,7 +229,6 @@ private fun ProjectionControl(
 @Composable
 private fun RoundMapAction(
     label: String,
-    description: String,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -282,7 +282,7 @@ private fun PrivateToolPalette(onDismiss: () -> Unit) {
 private fun LayerSheet(
     political: Boolean,
     expanded: Boolean,
-    layerVisibility: MutableMap<String, Boolean>,
+    layerVisibility: SnapshotStateMap<String, Boolean>,
     onToggleExpanded: () -> Unit,
     onToggleContent: () -> Unit,
     modifier: Modifier = Modifier,
