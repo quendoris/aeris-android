@@ -3,9 +3,12 @@
 
 buildscript {
     dependencies {
-        // AGP 9 provides built-in Kotlin. Pin a newer KGP runtime so the
-        // Compose compiler plugin can use the same Kotlin toolchain version.
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21")
+        // AGP 9 compiles Kotlin through built-in Kotlin. Compose remains an
+        // explicit compiler plugin and is pinned independently to Kotlin 2.3.21.
+        classpath(
+            "org.jetbrains.kotlin.plugin.compose:" +
+                "org.jetbrains.kotlin.plugin.compose.gradle.plugin:2.3.21"
+        )
     }
 }
 
