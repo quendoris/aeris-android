@@ -32,11 +32,11 @@ jobs:
           gradle-version: '9.5.0'
           cache-provider: basic
 
-      - name: Install Android API 37
+      - name: Install Android API 37 toolchain
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager "platforms;android-37"
+          sdkmanager "platforms;android-37" "build-tools;36.0.0"
 
       - name: Test label placement contracts
         run: gradle :app:testDebugUnitTest --stacktrace
