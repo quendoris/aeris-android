@@ -16,9 +16,11 @@ import io.github.quendoris.aeris.document.DocumentOpenState
 import io.github.quendoris.aeris.document.DocumentSessionStore
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 class MainActivity : ComponentActivity() {
     private val documentState = mutableStateOf<DocumentOpenState>(DocumentOpenState.NoProject)
+    private val documentGeneration = AtomicLong(0L)
     private val documentExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "aeris-document-open").apply { isDaemon = true }
     }
@@ -50,6 +52,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        documentGeneration.incrementAndGet()
         documentExecutor.shutdownNow()
         super.onDestroy()
     }
@@ -87,14 +90,23 @@ class MainActivity : ComponentActivity() {
         persistentAccess: Boolean,
         rememberOnSuccess: Boolean,
     ) {
+        val generation = documentGeneration.incrementAndGet()
         documentState.value = DocumentOpenState.Opening(displayName = null)
         documentExecutor.execute {
             val result = documentAccess.probeReadOnly(uri, persistentAccess)
+            if (generation != documentGeneration.get()) return@execute
+
             if (rememberOnSuccess && result is DocumentOpenState.DescriptorReady) {
                 documentSession.remember(uri)
             }
             runOnUiThread {
-                if (!isFinishing && !isDestroyed) documentState.value = result
+                if (
+                    generation == documentGeneration.get() &&
+                    !isFinishing &&
+                    !isDestroyed
+                ) {
+                    documentState.value = result
+                }
             }
         }
     }
