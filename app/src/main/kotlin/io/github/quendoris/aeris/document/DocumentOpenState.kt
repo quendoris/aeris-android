@@ -13,6 +13,7 @@ sealed interface DocumentOpenState {
         val displayName: String?,
         val declaredSizeBytes: Long?,
         val nativeSizeBytes: Long?,
+        val persistentAccess: Boolean,
     ) : DocumentOpenState
     data class Unsupported(
         val uri: Uri?,
