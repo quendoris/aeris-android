@@ -32,14 +32,18 @@ jobs:
           gradle-version: '9.5.0'
           cache-provider: basic
 
-      - name: Install Android API 37 toolchain
+      - name: Install Android API 37 + native toolchain
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager \
+            "platforms;android-37" \
+            "build-tools;36.0.0" \
+            "ndk;29.0.14206865" \
+            "cmake;3.22.1"
 
-      - name: Test label placement contracts
+      - name: Test Kotlin contracts
         run: gradle :app:testDebugUnitTest --stacktrace
 
-      - name: Assemble debug shell
+      - name: Assemble debug shell + JNI bridge
         run: gradle :app:assembleDebug --stacktrace
