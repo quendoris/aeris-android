@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import io.github.quendoris.aeris.document.DocumentOpenState
+import java.util.Locale
 
 private data class LayerItem(
     val id: String,
@@ -65,7 +67,10 @@ private val PrivateTools = listOf(
 )
 
 @Composable
-fun AerisMapShell() {
+fun AerisMapShell(
+    documentState: DocumentOpenState,
+    onOpenDocument: () -> Unit,
+) {
     var presentationMode by remember { mutableStateOf(MapPresentationMode.Globe) }
     var political by remember { mutableStateOf(true) }
     var layersExpanded by remember { mutableStateOf(false) }
@@ -102,6 +107,7 @@ fun AerisMapShell() {
         )
 
         TopMapChrome(
+            onOpenDocument = onOpenDocument,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .systemBarsPadding()
@@ -114,7 +120,7 @@ fun AerisMapShell() {
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .systemBarsPadding()
-                .padding(end = 14.dp, bottom = if (layersExpanded) 350.dp else 92.dp),
+                .padding(end = 14.dp, bottom = if (layersExpanded) 390.dp else 92.dp),
         ) {
             if (privateToolsExpanded) {
                 PrivateToolPalette(
@@ -143,6 +149,7 @@ fun AerisMapShell() {
             political = political,
             expanded = layersExpanded,
             layerVisibility = layerVisibility,
+            documentState = documentState,
             onToggleExpanded = { layersExpanded = !layersExpanded },
             onToggleContent = { political = !political },
             modifier = Modifier
@@ -153,7 +160,10 @@ fun AerisMapShell() {
 }
 
 @Composable
-private fun TopMapChrome(modifier: Modifier = Modifier) {
+private fun TopMapChrome(
+    onOpenDocument: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.fillMaxWidth(),
@@ -186,6 +196,7 @@ private fun TopMapChrome(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
             shape = RoundedCornerShape(14.dp),
             shadowElevation = 4.dp,
+            modifier = Modifier.clickable(onClick = onOpenDocument),
         ) {
             Text(
                 text = "Open",
@@ -283,6 +294,7 @@ private fun LayerSheet(
     political: Boolean,
     expanded: Boolean,
     layerVisibility: SnapshotStateMap<String, Boolean>,
+    documentState: DocumentOpenState,
     onToggleExpanded: () -> Unit,
     onToggleContent: () -> Unit,
     modifier: Modifier = Modifier,
@@ -351,31 +363,92 @@ private fun LayerSheet(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-                ) {
-                    Column {
-                        Text(
-                            text = "Offline coverage",
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = "No .aeris project open",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp,
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = "—",
-                        color = Color(0xFFC09B62),
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                DocumentStatusRow(documentState)
             }
         }
     }
+}
+
+@Composable
+private fun DocumentStatusRow(state: DocumentOpenState) {
+    val status = when (state) {
+        DocumentOpenState.NoProject -> Triple(
+            "No .aeris project open",
+            "Open uses Android's system document picker.",
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        is DocumentOpenState.Opening -> Triple(
+            state.displayName ?: "Opening project…",
+            "Checking direct random-access document transport…",
+            MaterialTheme.colorScheme.primary,
+        )
+
+        is DocumentOpenState.DescriptorReady -> Triple(
+            state.displayName ?: "Selected document",
+            buildString {
+                val bytes = state.nativeSizeBytes ?: state.declaredSizeBytes
+                if (bytes != null) append(formatBytes(bytes)).append(" · ")
+                append("direct descriptor ready · core verification pending")
+                if (state.persistentAccess) append(" · persistent access")
+            },
+            MaterialTheme.colorScheme.primary,
+        )
+
+        is DocumentOpenState.Unsupported -> Triple(
+            state.displayName ?: "Unsupported document provider",
+            state.diagnostic,
+            Color(0xFFC09B62),
+        )
+
+        is DocumentOpenState.Failed -> Triple(
+            state.displayName ?: "Could not open project",
+            state.diagnostic,
+            MaterialTheme.colorScheme.error,
+        )
+    }
+
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = status.first,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = status.second,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = when (state) {
+                is DocumentOpenState.DescriptorReady -> "FD ✓"
+                is DocumentOpenState.Opening -> "…"
+                is DocumentOpenState.Unsupported -> "!"
+                is DocumentOpenState.Failed -> "×"
+                DocumentOpenState.NoProject -> "—"
+            },
+            color = status.third,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+private fun formatBytes(bytes: Long): String {
+    if (bytes < 1024L) return "$bytes B"
+    val units = arrayOf("KiB", "MiB", "GiB", "TiB")
+    var value = bytes.toDouble()
+    var index = -1
+    do {
+        value /= 1024.0
+        index += 1
+    } while (value >= 1024.0 && index < units.lastIndex)
+    return String.format(Locale.ROOT, "%.1f %s", value, units[index])
 }
 
 @Composable
