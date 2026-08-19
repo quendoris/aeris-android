@@ -48,16 +48,17 @@ private:
 }  // namespace
 
 extern "C" JNIEXPORT jlongArray JNICALL
-Java_io_github_quendoris_aeris_document_NativeDocumentBridge_nativeProbeOwnedFd(
+Java_io_github_quendoris_aeris_document_NativeDocumentBridge_nativeProbeBorrowedFd(
     JNIEnv* env,
     jobject,
-    const jint raw_fd
+    const jint borrowed_fd
 ) {
-    // Ownership is transferred by Kotlin only after duplicating the provider's
-    // ParcelFileDescriptor. Closing this fd therefore never closes the
-    // provider-owned descriptor directly.
-    OwnedFd fd(raw_fd);
-    if (fd.get() < 0) return make_result(env, 1, -1, EBADF);
+    // Java/Android retains ownership of borrowed_fd. Duplicate immediately and
+    // close only the native duplicate; this keeps ContentResolver/PFD lifetime
+    // semantics intact even when native probing fails.
+    errno = 0;
+    OwnedFd fd(::dup(borrowed_fd));
+    if (fd.get() < 0) return make_result(env, 1, -1, errno);
 
     struct stat metadata {};
     if (::fstat(fd.get(), &metadata) != 0) {
