@@ -2,7 +2,7 @@
 
 Android application for AERIS (`.aeris`) maps.
 
-This repository is the Android-specific frontend and platform integration layer. The normative `.aeris` format, canonical geographic/source semantics, projection mathematics, storage/verifier implementation, and cross-platform conformance fixtures belong to the platform-neutral AERIS core.
+This repository is the Android-specific frontend and platform integration layer. The normative `.aeris` format, canonical geographic/source semantics, projection mathematics, storage/verifier implementation, private-vault ciphertext semantics, and cross-platform conformance fixtures belong to the platform-neutral AERIS core.
 
 ## Architecture
 
@@ -12,22 +12,43 @@ Dependency direction is one-way:
 AERIS core  <-  aeris-android
 ```
 
-`aeris-android` must not fork, reinterpret, or independently reimplement the `.aeris` format. Android-specific code may provide file-descriptor/storage integration, caching, rendering, touch interaction, lifecycle handling, and JNI/NDK bindings, but canonical format semantics remain in the shared core.
+`aeris-android` must not fork, reinterpret, or independently reimplement the `.aeris` format. Android-specific code may provide file-descriptor/storage integration, caching, rendering, touch interaction, lifecycle handling, Android Keystore integration, and JNI/NDK bindings, but canonical format semantics remain in the shared core.
 
 There is intentionally no `aeris-mobile` repository. Android is a concrete supported platform; a future iOS implementation, if it can be built and tested properly, should be a separate `aeris-ios` consumer of the same core.
 
 ## Initial target: reader first
 
-The first Android milestone is deliberately read-only:
+The first Android milestone remains deliberately read-only with respect to `.aeris`:
 
 1. Open a desktop-created `.aeris` through Android document storage APIs.
 2. Verify the same format/schema/source invariants as the desktop/core verifier.
 3. Render the same canonical Earth as Globe and Flat representations.
 4. Navigate only the spatial/LOD coverage actually present in the file.
 5. Perform offline address/POI lookup when those canonical channels are present.
-6. Prove semantic equality against the shared conformance fixtures.
+6. Read encrypted private annotations only after the shared core private-vault contract exists.
+7. Prove semantic equality against the shared conformance fixtures.
 
-Only after cross-platform reading is proven should Android gain project mutation/writer features.
+Only after cross-platform reading is proven should Android gain project/private-annotation mutation features.
+
+## Map-first shell
+
+The first application shell is intentionally being built before native reader integration so UI/render responsibilities are fixed without duplicating core semantics.
+
+Current work-in-progress architecture:
+
+- Jetpack Compose owns application chrome, sheets and forms.
+- A dedicated `SurfaceView` owns high-frequency map gestures and rendering.
+- The render surface performs no file I/O and does not fabricate geographic data while no `.aeris` is open.
+- Pan/zoom input collapses pending render requests so camera motion cannot build a stale-frame backlog.
+- Search, layers, Globe/Flat, offline coverage and private annotation tools are contextual map overlays rather than permanent navigation tabs.
+
+The placeholder surface is not an AERIS map renderer and no Android `.aeris` reader is claimed yet. Its purpose is to establish a responsive platform rendering boundary before the C++ core is connected through JNI/NDK.
+
+## Private annotations
+
+Personal pins, labels, notes, tracks, areas and related data are intended to be an encrypted private overlay defined by the core format, not Android-only state.
+
+Normal use should not require an AERIS-specific password. Authorized-device key material will be protected using Android platform key facilities, while cross-device vault semantics and ciphertext remain shared with desktop/core.
 
 ## Format 1.0 gate
 
@@ -39,6 +60,6 @@ The intended distribution path is an open-source Android application suitable fo
 
 ## Status
 
-Repository bootstrap only. No Android reader implementation is claimed yet.
+Map-first Android shell and dedicated render-surface boundary are under active development. Native `.aeris` reader integration has not started yet.
 
 License: AGPL-3.0-only.
