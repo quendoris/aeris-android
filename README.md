@@ -30,6 +30,22 @@ The first Android milestone remains deliberately read-only with respect to `.aer
 
 Only after cross-platform reading is proven should Android gain project/private-annotation mutation features.
 
+## Direct Android document transport
+
+The current Android work proves the storage boundary before core parsing is connected:
+
+- `Open` uses Android `ACTION_OPEN_DOCUMENT` / the system Storage Access Framework picker;
+- AERIS requests persistable read access and remembers only the active document URI, not a copied project;
+- the selected document is opened read-only through `ContentResolver.openFileDescriptor()`;
+- Java retains ownership of the provider `ParcelFileDescriptor` while the JNI bridge borrows its fd;
+- native code immediately `dup()`s the borrowed fd, owns only the duplicate, and closes that duplicate on every return path;
+- a positioned `pread()` proves that the provider exposes random-access storage suitable for a future SQLite VFS;
+- stream/pipe providers fail explicitly instead of causing a silent whole-file copy into app cache;
+- asynchronous open results are generation-gated so a slow old provider cannot replace a newer user selection;
+- persistable grants are bounded to the active project rather than accumulated indefinitely.
+
+This transport proof does **not** parse SQLite or claim that the selected document is a valid `.aeris`. The current core `ProjectStore` is still path/read-write oriented. Core issue #29 owns the read-only random-access/VFS project-open boundary that will connect this descriptor transport to the canonical verifier.
+
 ## Map-first shell
 
 The first application shell is intentionally being built before native reader integration so UI/render responsibilities are fixed without duplicating core semantics.
@@ -38,11 +54,11 @@ Current work-in-progress architecture:
 
 - Jetpack Compose owns application chrome, sheets and forms.
 - A dedicated `SurfaceView` owns high-frequency map gestures and rendering.
-- The render surface performs no file I/O and does not fabricate geographic data while no `.aeris` is open.
+- The render surface performs no file I/O and does not fabricate geographic data while no verified `.aeris` is open.
 - Pan/zoom input collapses pending render requests so camera motion cannot build a stale-frame backlog.
 - Search, layers, Globe/Flat, offline coverage and private annotation tools are contextual map overlays rather than permanent navigation tabs.
 
-The placeholder surface is not an AERIS map renderer and no Android `.aeris` reader is claimed yet. Its purpose is to establish a responsive platform rendering boundary before the C++ core is connected through JNI/NDK.
+The placeholder surface is not an AERIS map renderer. Its purpose is to establish a responsive platform rendering boundary before the C++ core is connected through JNI/NDK.
 
 ## Private annotations
 
@@ -78,6 +94,6 @@ The intended distribution path is an open-source Android application suitable fo
 
 ## Status
 
-Map-first Android shell, render-surface boundary, label placement baseline, and pairing UX state model are under active development. Native `.aeris` reader integration has not started yet.
+Map-first Android shell, render-surface boundary, label placement baseline, pairing UX state model, and direct SAF→JNI random-access descriptor transport are under active development. Canonical native `.aeris` verification still awaits the core read-only VFS boundary.
 
 License: AGPL-3.0-only.

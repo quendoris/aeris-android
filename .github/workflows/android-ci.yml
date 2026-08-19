@@ -32,15 +32,27 @@ jobs:
           gradle-version: '9.5.0'
           cache-provider: basic
 
-      - name: Verify Android API 37 toolchain
+      - name: Verify Android API 37 + native toolchain
         shell: bash
         run: |
           set -euo pipefail
           test -d "$ANDROID_HOME/platforms/android-37.0" || test -d "$ANDROID_HOME/platforms/android-37"
           test -d "$ANDROID_HOME/build-tools/36.0.0"
+          test -d "$ANDROID_HOME/ndk/29.0.14206865"
+
+          CMAKE_VERSION="$(cmake --version | awk 'NR==1 {print $3}')"
+          case "$CMAKE_VERSION" in
+            3.31.*) ;;
+            *)
+              echo "Unsupported hosted-runner CMake version: $CMAKE_VERSION" >&2
+              exit 1
+              ;;
+          esac
+          echo "AERIS_CMAKE_VERSION=$CMAKE_VERSION" >> "$GITHUB_ENV"
+          echo "Using CMake $CMAKE_VERSION"
 
       - name: Test Kotlin contracts
         run: gradle :app:testDebugUnitTest --stacktrace
 
-      - name: Assemble debug shell
+      - name: Assemble debug shell + JNI bridge
         run: gradle :app:assembleDebug --stacktrace
